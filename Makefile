@@ -45,9 +45,61 @@ package-all: package-linux-amd64 package-linux-arm64
 	@echo "Packaged all supported platforms"
 	@ls -la *.tar.gz
 
+# Testing and quality checks
 .PHONY: test
 test:
-	@go test ./...
+	@echo "Running tests..."
+	@go test -v ./...
+
+.PHONY: test-coverage
+test-coverage:
+	@echo "Running tests with coverage..."
+	@go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "Coverage report generated: coverage.html"
+
+.PHONY: test-race
+test-race:
+	@echo "Running tests with race detector..."
+	@go test -race ./...
+
+.PHONY: lint
+lint:
+	@echo "Running golangci-lint..."
+	@which golangci-lint > /dev/null || (echo "golangci-lint not installed. Install from https://golangci-lint.run/usage/install/" && exit 1)
+	@golangci-lint run --timeout=5m
+
+.PHONY: fmt
+fmt:
+	@echo "Formatting code..."
+	@gofmt -s -w .
+	@echo "Code formatted"
+
+.PHONY: fmt-imports
+fmt-imports:
+	@echo "Formatting imports..."
+	@which goimports > /dev/null || (echo "goimports not installed. Installing..." && go install golang.org/x/tools/cmd/goimports@latest)
+	@goimports -w .
+	@echo "Imports formatted"
+
+.PHONY: fmt-all
+fmt-all: fmt fmt-imports
+	@echo "All formatting complete"
+
+.PHONY: vet
+vet:
+	@echo "Running go vet..."
+	@go vet ./...
+
+.PHONY: check
+check: fmt-all vet lint test
+	@echo "All checks passed!"
+
+.PHONY: verify
+verify:
+	@echo "Verifying dependencies..."
+	@go mod verify
+	@go mod tidy
 
 .PHONY: clean
 clean:
@@ -55,6 +107,7 @@ clean:
 	@go clean
 	@rm -f aks-flex-node-*
 	@rm -f *.tar.gz
+	@rm -f coverage.out coverage.html
 
 .PHONY: update-build-metadata
 update-build-metadata:
@@ -68,15 +121,30 @@ help:
 	@echo "AKS Flex Node Makefile"
 	@echo "======================"
 	@echo ""
-	@echo "Targets:"
+	@echo "Build Targets:"
 	@echo "  build              Build for current platform"
 	@echo "  build-linux-amd64  Build for Linux AMD64"
 	@echo "  build-linux-arm64  Build for Linux ARM64"
 	@echo "  build-all          Build for all supported platforms"
+	@echo ""
+	@echo "Package Targets:"
 	@echo "  package-linux-amd64 Package Linux AMD64 binary"
 	@echo "  package-linux-arm64 Package Linux ARM64 binary"
 	@echo "  package-all        Package all supported platforms"
+	@echo ""
+	@echo "Test & Quality Targets:"
 	@echo "  test               Run tests"
+	@echo "  test-coverage      Run tests with coverage report"
+	@echo "  test-race          Run tests with race detector"
+	@echo "  lint               Run golangci-lint"
+	@echo "  fmt                Format code with gofmt"
+	@echo "  fmt-imports        Format imports with goimports"
+	@echo "  fmt-all            Format code and imports"
+	@echo "  vet                Run go vet"
+	@echo "  check              Run fmt-all, vet, lint, and test"
+	@echo "  verify             Verify and tidy dependencies"
+	@echo ""
+	@echo "Other Targets:"
 	@echo "  clean              Clean build artifacts"
 	@echo "  update-build-metadata Show build metadata"
 	@echo "  help               Show this help message"

@@ -12,6 +12,11 @@ aks-flex-node
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Test coverage reports
+coverage.out
+coverage.html
+coverage.xml
+
 # Go workspace file
 go.work
 
