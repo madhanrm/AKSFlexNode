@@ -13,13 +13,13 @@ import (
 func TestNew(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
-	
+
 	bootstrapper := New(cfg, logger)
-	
+
 	if bootstrapper == nil {
 		t.Fatal("New should not return nil")
 	}
-	
+
 	if bootstrapper.BaseExecutor == nil {
 		t.Error("BaseExecutor should be initialized")
 	}
@@ -34,13 +34,13 @@ func TestBootstrapperStructure(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
 	bootstrapper := New(cfg, logger)
-	
+
 	// Just verify that the bootstrapper is initialized properly
 	// Methods Bootstrap and Unbootstrap exist as methods on the struct
 	if bootstrapper == nil {
 		t.Error("Bootstrapper should not be nil")
 	}
-	
+
 	if bootstrapper.BaseExecutor == nil {
 		t.Error("BaseExecutor should be initialized")
 	}

@@ -19,7 +19,7 @@ func TestNPDConstants(t *testing.T) {
 		{"kubeletKubeconfigPath", kubeletKubeconfigPath, "/var/lib/kubelet/kubeconfig"},
 		{"tempDir", tempDir, "/tmp/npd"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != tt.expected {
@@ -36,11 +36,11 @@ func TestNPDVariables(t *testing.T) {
 	if npdFileName == "" {
 		t.Error("npdFileName should not be empty")
 	}
-	
+
 	if npdDownloadURL == "" {
 		t.Error("npdDownloadURL should not be empty")
 	}
-	
+
 	expectedFileName := "npd-%s.tar.gz"
 	if npdFileName != expectedFileName {
 		t.Errorf("npdFileName = %s, want %s", npdFileName, expectedFileName)

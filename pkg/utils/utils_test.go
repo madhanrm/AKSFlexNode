@@ -13,17 +13,17 @@ func TestFileExists(t *testing.T) {
 	// Create temp file
 	tempDir := t.TempDir()
 	tempFile := filepath.Join(tempDir, "test.txt")
-	
+
 	// File doesn't exist yet
 	if FileExists(tempFile) {
 		t.Error("FileExists should return false for non-existent file")
 	}
-	
+
 	// Create file
 	if err := os.WriteFile(tempFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	// File exists now
 	if !FileExists(tempFile) {
 		t.Error("FileExists should return true for existing file")
@@ -35,7 +35,7 @@ func TestFileExists(t *testing.T) {
 // Expected: Returns true only for files that exist and have content (size > 0)
 func TestFileExistsAndValid(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	tests := []struct {
 		name     string
 		content  []byte
@@ -52,21 +52,21 @@ func TestFileExistsAndValid(t *testing.T) {
 			expected: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempFile := filepath.Join(tempDir, tt.name+".txt")
 			if err := os.WriteFile(tempFile, tt.content, 0644); err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
 			}
-			
+
 			result := FileExistsAndValid(tempFile)
 			if result != tt.expected {
 				t.Errorf("FileExistsAndValid() = %v, want %v", result, tt.expected)
 			}
 		})
 	}
-	
+
 	// Test non-existent file
 	if FileExistsAndValid("/non/existent/file") {
 		t.Error("FileExistsAndValid should return false for non-existent file")
@@ -78,23 +78,23 @@ func TestFileExistsAndValid(t *testing.T) {
 // Expected: Returns true only for actual directories, false for files and non-existent paths
 func TestDirectoryExists(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Directory exists
 	if !DirectoryExists(tempDir) {
 		t.Error("DirectoryExists should return true for existing directory")
 	}
-	
+
 	// Create a file (not directory)
 	tempFile := filepath.Join(tempDir, "file.txt")
 	if err := os.WriteFile(tempFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	// File is not a directory
 	if DirectoryExists(tempFile) {
 		t.Error("DirectoryExists should return false for file")
 	}
-	
+
 	// Non-existent path
 	if DirectoryExists(filepath.Join(tempDir, "nonexistent")) {
 		t.Error("DirectoryExists should return false for non-existent path")
@@ -166,7 +166,7 @@ func TestRequiresSudoAccess(t *testing.T) {
 			expected: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := requiresSudoAccess(tt.command, tt.args)
@@ -202,7 +202,7 @@ func TestShouldIgnoreCleanupError(t *testing.T) {
 			expected: true, // Error message contains "no such file or directory"
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := shouldIgnoreCleanupError(tt.err)
@@ -219,7 +219,7 @@ func TestShouldIgnoreCleanupError(t *testing.T) {
 func TestCreateTempFile(t *testing.T) {
 	content := []byte("test content")
 	pattern := "test-*.txt"
-	
+
 	file, err := CreateTempFile(pattern, content)
 	if err != nil {
 		t.Fatalf("CreateTempFile failed: %v", err)
@@ -228,18 +228,18 @@ func TestCreateTempFile(t *testing.T) {
 		_ = file.Close()
 		CleanupTempFile(file.Name())
 	}()
-	
+
 	// Verify file exists
 	if !FileExists(file.Name()) {
 		t.Error("Temp file should exist")
 	}
-	
+
 	// Verify content
 	readContent, err := os.ReadFile(file.Name())
 	if err != nil {
 		t.Fatalf("Failed to read temp file: %v", err)
 	}
-	
+
 	if string(readContent) != string(content) {
 		t.Errorf("Content mismatch: got %q, want %q", readContent, content)
 	}
@@ -253,33 +253,33 @@ func TestWriteFileAtomic(t *testing.T) {
 	testFile := filepath.Join(tempDir, "test.txt")
 	content := []byte("test content")
 	perm := os.FileMode(0644)
-	
+
 	err := WriteFileAtomic(testFile, content, perm)
 	if err != nil {
 		t.Fatalf("WriteFileAtomic failed: %v", err)
 	}
-	
+
 	// Verify file exists
 	if !FileExists(testFile) {
 		t.Error("File should exist after WriteFileAtomic")
 	}
-	
+
 	// Verify content
 	readContent, err := os.ReadFile(testFile)
 	if err != nil {
 		t.Fatalf("Failed to read file: %v", err)
 	}
-	
+
 	if string(readContent) != string(content) {
 		t.Errorf("Content mismatch: got %q, want %q", readContent, content)
 	}
-	
+
 	// Verify permissions
 	stat, err := os.Stat(testFile)
 	if err != nil {
 		t.Fatalf("Failed to stat file: %v", err)
 	}
-	
+
 	if stat.Mode().Perm() != perm {
 		t.Errorf("Permission mismatch: got %v, want %v", stat.Mode().Perm(), perm)
 	}
@@ -293,7 +293,7 @@ func TestGetArc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetArc failed: %v", err)
 	}
-	
+
 	// Verify it returns a valid architecture string
 	validArchs := []string{"amd64", "arm64", "arm"}
 	valid := false
@@ -303,7 +303,7 @@ func TestGetArc(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !valid {
 		t.Errorf("GetArc returned unexpected architecture: %s", arch)
 	}
@@ -314,10 +314,10 @@ func TestGetArc(t *testing.T) {
 // Expected: Successfully extracts server URL and CA data from valid kubeconfig, errors on invalid inputs
 func TestExtractClusterInfo(t *testing.T) {
 	tests := []struct {
-		name        string
-		kubeconfig  string
-		wantErr     bool
-		wantServer  string
+		name       string
+		kubeconfig string
+		wantErr    bool
+		wantServer string
 	}{
 		{
 			name: "valid kubeconfig",
@@ -367,27 +367,27 @@ clusters:
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server, caData, err := ExtractClusterInfo([]byte(tt.kubeconfig))
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if server != tt.wantServer {
 				t.Errorf("Server mismatch: got %q, want %q", server, tt.wantServer)
 			}
-			
+
 			if caData == "" {
 				t.Error("CA data should not be empty")
 			}
@@ -401,20 +401,20 @@ clusters:
 func TestCleanupTempFile(t *testing.T) {
 	tempDir := t.TempDir()
 	tempFile := filepath.Join(tempDir, "test.txt")
-	
+
 	// Create a file
 	if err := os.WriteFile(tempFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	
+
 	// Cleanup should not panic
 	CleanupTempFile(tempFile)
-	
+
 	// File should be removed
 	if FileExists(tempFile) {
 		t.Error("File should be removed after CleanupTempFile")
 	}
-	
+
 	// Cleanup non-existent file should not panic
 	CleanupTempFile("/non/existent/file")
 }

@@ -22,16 +22,16 @@ func TestRuncVariables(t *testing.T) {
 	if runcFileName == "" {
 		t.Error("runcFileName should not be empty")
 	}
-	
+
 	if runcDownloadURL == "" {
 		t.Error("runcDownloadURL should not be empty")
 	}
-	
+
 	// Test that runcFileName contains format specifier
 	if runcFileName != "runc.%s" {
 		t.Errorf("Expected runcFileName to be 'runc.%%s', got '%s'", runcFileName)
 	}
-	
+
 	// Test that runcDownloadURL contains format specifiers
 	expectedPrefix := "https://github.com/opencontainers/runc/releases/download/v"
 	if len(runcDownloadURL) < len(expectedPrefix) {

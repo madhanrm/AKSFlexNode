@@ -15,11 +15,11 @@ func TestRoleDefinitionIDs(t *testing.T) {
 		"Azure Kubernetes Service RBAC Cluster Admin": "b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b",
 		"Azure Kubernetes Service Cluster Admin Role": "0ab0b1a8-8aac-4efd-b8c2-3ee1fb270be8",
 	}
-	
+
 	if len(roleDefinitionIDs) != len(expectedRoles) {
 		t.Errorf("Expected %d role definitions, got %d", len(expectedRoles), len(roleDefinitionIDs))
 	}
-	
+
 	for role, id := range expectedRoles {
 		if roleDefinitionIDs[role] != id {
 			t.Errorf("roleDefinitionIDs[%s] = %s, want %s", role, roleDefinitionIDs[role], id)
@@ -32,11 +32,11 @@ func TestRoleDefinitionIDs(t *testing.T) {
 // Expected: Array should contain himdsd, gcarcservice, and extd services
 func TestArcServices(t *testing.T) {
 	expectedServices := []string{"himdsd", "gcarcservice", "extd"}
-	
+
 	if len(arcServices) != len(expectedServices) {
 		t.Errorf("Expected %d arc services, got %d", len(expectedServices), len(arcServices))
 	}
-	
+
 	for i, service := range expectedServices {
 		if arcServices[i] != service {
 			t.Errorf("arcServices[%d] = %s, want %s", i, arcServices[i], service)
@@ -53,7 +53,7 @@ func TestRoleDefinitionIDsAreGUIDs(t *testing.T) {
 		if len(id) != 36 {
 			t.Errorf("Role %s has ID with wrong length: %d (expected 36)", role, len(id))
 		}
-		
+
 		// Check for correct dashes
 		if id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
 			t.Errorf("Role %s has ID with incorrect GUID format: %s", role, id)
