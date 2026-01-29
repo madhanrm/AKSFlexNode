@@ -20,7 +20,7 @@ func TestContainerdConstants(t *testing.T) {
 		{"containerdServiceFile", containerdServiceFile, "/etc/systemd/system/containerd.service"},
 		{"containerdDataDir", containerdDataDir, "/var/lib/containerd"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != tt.expected {
@@ -37,7 +37,7 @@ func TestContainerdDirs(t *testing.T) {
 	if len(containerdDirs) != 1 {
 		t.Errorf("Expected 1 containerd directory, got %d", len(containerdDirs))
 	}
-	
+
 	if containerdDirs[0] != "/etc/containerd" {
 		t.Errorf("containerdDirs[0] = %s, want /etc/containerd", containerdDirs[0])
 	}
@@ -55,11 +55,11 @@ func TestContainerdBinaries(t *testing.T) {
 		"containerd-shim-runc-v2",
 		"containerd-stress",
 	}
-	
+
 	if len(containerdBinaries) != len(expectedBinaries) {
 		t.Errorf("Expected %d binaries, got %d", len(expectedBinaries), len(containerdBinaries))
 	}
-	
+
 	for i, binary := range containerdBinaries {
 		if binary != expectedBinaries[i] {
 			t.Errorf("containerdBinaries[%d] = %s, want %s", i, binary, expectedBinaries[i])
@@ -74,11 +74,11 @@ func TestContainerdVariables(t *testing.T) {
 	if containerdFileName == "" {
 		t.Error("containerdFileName should not be empty")
 	}
-	
+
 	if containerdDownloadURL == "" {
 		t.Error("containerdDownloadURL should not be empty")
 	}
-	
+
 	expectedFileName := "containerd-%s-linux-%s.tar.gz"
 	if containerdFileName != expectedFileName {
 		t.Errorf("containerdFileName = %s, want %s", containerdFileName, expectedFileName)

@@ -18,7 +18,7 @@ func TestSystemConfigurationConstants(t *testing.T) {
 		{"resolvConfPath", resolvConfPath, "/etc/resolv.conf"},
 		{"resolvConfSource", resolvConfSource, "/run/systemd/resolve/resolv.conf"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != tt.expected {

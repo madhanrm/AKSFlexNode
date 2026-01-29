@@ -23,11 +23,11 @@ func TestNewAuthProvider(t *testing.T) {
 // Note: Will fail in test environment without Arc MSI, which is expected behavior
 func TestArcCredential(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	// Note: This will fail if not running in an Arc-enabled environment
 	// We're testing that it returns a credential object, not that it works
 	_, err := provider.ArcCredential()
-	
+
 	// We expect an error in test environment (no Arc MSI available)
 	// Just verify the method doesn't panic
 	if err == nil {
@@ -42,7 +42,7 @@ func TestArcCredential(t *testing.T) {
 // Expected: Credential object should be created successfully without errors
 func TestServiceCredential(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	tests := []struct {
 		name    string
 		cfg     *config.Config
@@ -62,19 +62,19 @@ func TestServiceCredential(t *testing.T) {
 			wantErr: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cred, err := provider.serviceCredential(tt.cfg)
-			
+
 			if tt.wantErr && err == nil {
 				t.Error("Expected error but got none")
 			}
-			
+
 			if !tt.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			if !tt.wantErr && cred == nil {
 				t.Error("Credential should not be nil")
 			}
@@ -88,11 +88,11 @@ func TestServiceCredential(t *testing.T) {
 // Note: Will fail in environments without Azure CLI installed/configured
 func TestCLICredential(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	// Note: This will fail if Azure CLI is not installed/configured
 	// We're testing that it doesn't panic
 	_, err := provider.cliCredential()
-	
+
 	// We expect an error in environments without Azure CLI configured
 	if err == nil {
 		t.Log("CLI credential created successfully")
@@ -106,11 +106,11 @@ func TestCLICredential(t *testing.T) {
 // Expected: Uses service principal when configured, falls back to Azure CLI otherwise
 func TestUserCredential(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	tests := []struct {
-		name    string
-		cfg     *config.Config
-		useSP   bool
+		name  string
+		cfg   *config.Config
+		useSP bool
 	}{
 		{
 			name: "with service principal",
@@ -135,17 +135,17 @@ func TestUserCredential(t *testing.T) {
 			useSP: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cred, err := provider.UserCredential(tt.cfg)
-			
+
 			// Don't fail on error - environment may not have Azure CLI
 			if err != nil {
 				t.Logf("UserCredential returned error (may be expected): %v", err)
 				return
 			}
-			
+
 			if cred == nil {
 				t.Error("Credential should not be nil when no error")
 			}
@@ -158,7 +158,7 @@ func TestUserCredential(t *testing.T) {
 // Expected: Should fail with test credentials but not panic
 func TestGetAccessToken(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	// Create a service principal credential (will fail to get token without valid creds)
 	cfg := &config.Config{
 		Azure: config.AzureConfig{
@@ -169,14 +169,14 @@ func TestGetAccessToken(t *testing.T) {
 			},
 		},
 	}
-	
+
 	cred, err := provider.serviceCredential(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create credential: %v", err)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	// This will fail with invalid credentials, but shouldn't panic
 	_, err = provider.GetAccessToken(ctx, cred)
 	if err == nil {
@@ -191,7 +191,7 @@ func TestGetAccessToken(t *testing.T) {
 // Expected: Should fail with test credentials but handle different resource scopes correctly
 func TestGetAccessTokenForResource(t *testing.T) {
 	provider := NewAuthProvider()
-	
+
 	// Create a service principal credential
 	cfg := &config.Config{
 		Azure: config.AzureConfig{
@@ -202,14 +202,14 @@ func TestGetAccessTokenForResource(t *testing.T) {
 			},
 		},
 	}
-	
+
 	cred, err := provider.serviceCredential(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create credential: %v", err)
 	}
-	
+
 	ctx := context.Background()
-	
+
 	tests := []struct {
 		name     string
 		resource string
@@ -223,7 +223,7 @@ func TestGetAccessTokenForResource(t *testing.T) {
 			resource: "https://graph.microsoft.com/.default",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// This will fail with invalid credentials
@@ -243,10 +243,10 @@ func TestGetAccessTokenForResource(t *testing.T) {
 func TestCheckCLIAuthStatus(t *testing.T) {
 	provider := NewAuthProvider()
 	ctx := context.Background()
-	
+
 	// This will fail if Azure CLI is not installed or user not logged in
 	err := provider.CheckCLIAuthStatus(ctx)
-	
+
 	if err == nil {
 		t.Log("CLI auth status check passed (user is logged in)")
 	} else {

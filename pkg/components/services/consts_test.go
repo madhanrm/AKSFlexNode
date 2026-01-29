@@ -17,7 +17,7 @@ func TestServicesConstants(t *testing.T) {
 		{"ContainerdService", ContainerdService, "containerd"},
 		{"KubeletService", KubeletService, "kubelet"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != tt.expected {

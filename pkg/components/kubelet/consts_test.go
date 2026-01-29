@@ -30,7 +30,7 @@ func TestKubeletConstants(t *testing.T) {
 		{"kubeletTokenScriptPath", kubeletTokenScriptPath, "/var/lib/kubelet/token.sh"},
 		{"aksServiceResourceID", aksServiceResourceID, "6dae42f8-4368-4678-94ff-3960e28e3630"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.value != tt.expected {
