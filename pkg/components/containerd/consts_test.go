@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestContainerdConstants verifies containerd installation path constants.
+// Test: Validates binary directory, config directory, service file, and data directory paths
+// Expected: All paths should match standard containerd installation locations
 func TestContainerdConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -27,6 +30,9 @@ func TestContainerdConstants(t *testing.T) {
 	}
 }
 
+// TestContainerdDirs verifies containerd directories array.
+// Test: Validates containerdDirs array contains required configuration directory
+// Expected: Array should contain /etc/containerd directory
 func TestContainerdDirs(t *testing.T) {
 	if len(containerdDirs) != 1 {
 		t.Errorf("Expected 1 containerd directory, got %d", len(containerdDirs))
@@ -37,6 +43,9 @@ func TestContainerdDirs(t *testing.T) {
 	}
 }
 
+// TestContainerdBinaries verifies containerd binary names list.
+// Test: Validates containerdBinaries array contains all required binaries
+// Expected: Array should contain ctr, containerd, and all shim variants
 func TestContainerdBinaries(t *testing.T) {
 	expectedBinaries := []string{
 		"ctr",
@@ -58,6 +67,9 @@ func TestContainerdBinaries(t *testing.T) {
 	}
 }
 
+// TestContainerdVariables verifies containerd download configuration variables.
+// Test: Validates filename template and download URL template
+// Expected: Variables should contain proper format specifiers for version and architecture
 func TestContainerdVariables(t *testing.T) {
 	if containerdFileName == "" {
 		t.Error("containerdFileName should not be empty")

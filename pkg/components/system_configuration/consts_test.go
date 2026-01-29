@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestSystemConfigurationConstants verifies system configuration file path constants.
+// Test: Validates sysctl directory and configuration file paths
+// Expected: Paths should match standard Linux system configuration locations
 func TestSystemConfigurationConstants(t *testing.T) {
 	tests := []struct {
 		name     string

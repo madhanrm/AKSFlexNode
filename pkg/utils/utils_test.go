@@ -6,6 +6,9 @@ import (
 	"testing"
 )
 
+// TestFileExists verifies the FileExists utility function for checking file existence.
+// Test: Creates a temporary file and checks existence before and after creation
+// Expected: Returns false for non-existent files, true for existing files
 func TestFileExists(t *testing.T) {
 	// Create temp file
 	tempDir := t.TempDir()
@@ -27,6 +30,9 @@ func TestFileExists(t *testing.T) {
 	}
 }
 
+// TestFileExistsAndValid verifies file existence validation (non-zero size check).
+// Test: Creates files with and without content, checks both existence and validity
+// Expected: Returns true only for files that exist and have content (size > 0)
 func TestFileExistsAndValid(t *testing.T) {
 	tempDir := t.TempDir()
 	
@@ -67,6 +73,9 @@ func TestFileExistsAndValid(t *testing.T) {
 	}
 }
 
+// TestDirectoryExists verifies directory existence checking functionality.
+// Test: Checks existence of directory, file (not directory), and non-existent path
+// Expected: Returns true only for actual directories, false for files and non-existent paths
 func TestDirectoryExists(t *testing.T) {
 	tempDir := t.TempDir()
 	
@@ -92,6 +101,9 @@ func TestDirectoryExists(t *testing.T) {
 	}
 }
 
+// TestRequiresSudoAccess verifies the sudo requirement detection logic for various commands and paths.
+// Test: Tests commands that always need sudo (systemctl, apt), conditionally need sudo (mkdir, cp on system paths), and never need sudo (echo)
+// Expected: Correctly identifies sudo requirements based on command name and file path arguments
 func TestRequiresSudoAccess(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -165,6 +177,9 @@ func TestRequiresSudoAccess(t *testing.T) {
 	}
 }
 
+// TestShouldIgnoreCleanupError verifies error filtering for cleanup operations.
+// Test: Tests various error types to determine which should be ignored during cleanup
+// Expected: Errors matching cleanup patterns (not loaded, does not exist, No such file) should be ignored
 func TestShouldIgnoreCleanupError(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -198,6 +213,9 @@ func TestShouldIgnoreCleanupError(t *testing.T) {
 	}
 }
 
+// TestCreateTempFile verifies temporary file creation with specific content.
+// Test: Creates a temp file with pattern and content, then verifies file exists and content matches
+// Expected: File should be created with correct content and be readable
 func TestCreateTempFile(t *testing.T) {
 	content := []byte("test content")
 	pattern := "test-*.txt"
@@ -227,6 +245,9 @@ func TestCreateTempFile(t *testing.T) {
 	}
 }
 
+// TestWriteFileAtomic verifies atomic file writing (write to temp, then rename).
+// Test: Writes content atomically and verifies file existence, content, and permissions
+// Expected: File should be created with correct content and permissions without partial writes
 func TestWriteFileAtomic(t *testing.T) {
 	tempDir := t.TempDir()
 	testFile := filepath.Join(tempDir, "test.txt")
@@ -264,6 +285,9 @@ func TestWriteFileAtomic(t *testing.T) {
 	}
 }
 
+// TestGetArc verifies system architecture detection and normalization.
+// Test: Calls GetArc to detect system architecture
+// Expected: Returns one of the valid architectures (amd64, arm64, arm) based on system
 func TestGetArc(t *testing.T) {
 	arch, err := GetArc()
 	if err != nil {
@@ -285,6 +309,9 @@ func TestGetArc(t *testing.T) {
 	}
 }
 
+// TestExtractClusterInfo verifies kubeconfig parsing for server URL and CA certificate extraction.
+// Test: Tests valid kubeconfig, empty config, missing clusters, and missing server
+// Expected: Successfully extracts server URL and CA data from valid kubeconfig, errors on invalid inputs
 func TestExtractClusterInfo(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -368,6 +395,9 @@ clusters:
 	}
 }
 
+// TestCleanupTempFile verifies temporary file cleanup without panicking.
+// Test: Creates a file, cleans it up, verifies it's removed, then tests cleanup of non-existent file
+// Expected: File should be removed successfully, cleanup of non-existent file should not panic
 func TestCleanupTempFile(t *testing.T) {
 	tempDir := t.TempDir()
 	tempFile := filepath.Join(tempDir, "test.txt")

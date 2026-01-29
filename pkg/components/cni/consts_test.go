@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestCNIConstants verifies CNI configuration path and version constants.
+// Test: Validates CNI directories, config file names, plugin names, and version strings
+// Expected: All paths should match standard CNI installation locations and specifications
 func TestCNIConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -33,6 +36,9 @@ func TestCNIConstants(t *testing.T) {
 	}
 }
 
+// TestCNIDirectories verifies CNI directory paths array.
+// Test: Validates cniDirs array contains all required CNI directories
+// Expected: Array should contain bin, conf, and lib directories in correct order
 func TestCNIDirectories(t *testing.T) {
 	if len(cniDirs) != 3 {
 		t.Errorf("Expected 3 CNI directories, got %d", len(cniDirs))
@@ -51,6 +57,9 @@ func TestCNIDirectories(t *testing.T) {
 	}
 }
 
+// TestRequiredCNIPlugins verifies required CNI plugins list.
+// Test: Validates requiredCNIPlugins array contains essential plugins
+// Expected: Array should contain bridge, host-local, and loopback plugins
 func TestRequiredCNIPlugins(t *testing.T) {
 	if len(requiredCNIPlugins) != 3 {
 		t.Errorf("Expected 3 required CNI plugins, got %d", len(requiredCNIPlugins))
@@ -69,6 +78,9 @@ func TestRequiredCNIPlugins(t *testing.T) {
 	}
 }
 
+// TestCNIVariables verifies CNI download configuration variables.
+// Test: Validates filename template and download URL template
+// Expected: Variables should contain proper format specifiers for architecture and version
 func TestCNIVariables(t *testing.T) {
 	if cniFileName == "" {
 		t.Error("cniFileName should not be empty")

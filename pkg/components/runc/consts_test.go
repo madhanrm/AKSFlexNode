@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestRuncConstants verifies runc binary path constant is correctly defined.
+// Test: Checks that runcBinaryPath constant matches expected value
+// Expected: runcBinaryPath should be "/usr/bin/runc"
 func TestRuncConstants(t *testing.T) {
 	// Test that constants are properly defined
 	if runcBinaryPath != "/usr/bin/runc" {
@@ -11,6 +14,9 @@ func TestRuncConstants(t *testing.T) {
 	}
 }
 
+// TestRuncVariables verifies runc download configuration variables.
+// Test: Validates runcFileName format string and runcDownloadURL template
+// Expected: Variables should contain proper format specifiers for version and architecture
 func TestRuncVariables(t *testing.T) {
 	// Test that variables are accessible
 	if runcFileName == "" {

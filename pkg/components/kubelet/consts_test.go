@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestKubeletConstants verifies kubelet configuration path constants.
+// Test: Validates all kubelet-related paths including config, service files, and data directories
+// Expected: All paths should match standard Kubernetes kubelet installation locations
 func TestKubeletConstants(t *testing.T) {
 	tests := []struct {
 		name     string

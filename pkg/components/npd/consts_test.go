@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestNPDConstants verifies Node Problem Detector (NPD) path constants.
+// Test: Validates NPD binary, config, service paths, and temp directory
+// Expected: All paths should match standard NPD installation locations
 func TestNPDConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -26,6 +29,9 @@ func TestNPDConstants(t *testing.T) {
 	}
 }
 
+// TestNPDVariables verifies NPD download configuration variables.
+// Test: Validates filename template and download URL template
+// Expected: Variables should contain proper format specifiers for version and architecture
 func TestNPDVariables(t *testing.T) {
 	if npdFileName == "" {
 		t.Error("npdFileName should not be empty")

@@ -10,7 +10,8 @@ import (
 	"go.goms.io/aks/AKSFlexNode/pkg/config"
 )
 
-// mockExecutor is a mock implementation of Executor for testing
+// mockExecutor is a mock implementation of Executor interface for testing bootstrap execution flow.
+// It tracks execution state and can simulate successful or failed execution.
 type mockExecutor struct {
 	name        string
 	shouldFail  bool
@@ -34,7 +35,8 @@ func (m *mockExecutor) GetName() string {
 	return m.name
 }
 
-// mockStepExecutor extends mockExecutor with Validate method
+// mockStepExecutor extends mockExecutor with Validate method for testing validation logic.
+// Used to test bootstrap steps that implement the StepExecutor interface.
 type mockStepExecutor struct {
 	mockExecutor
 	validateError error
@@ -44,6 +46,9 @@ func (m *mockStepExecutor) Validate(ctx context.Context) error {
 	return m.validateError
 }
 
+// TestNewBaseExecutor verifies BaseExecutor constructor initialization.
+// Test: Creates BaseExecutor with config and logger
+// Expected: Returns non-nil executor with config and logger properly set
 func TestNewBaseExecutor(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -63,6 +68,9 @@ func TestNewBaseExecutor(t *testing.T) {
 	}
 }
 
+// TestExecuteSteps_Success verifies successful execution of all steps in a bootstrap sequence.
+// Test: Executes 3 steps that all succeed
+// Expected: All steps execute successfully, result shows Success=true with StepCount=3
 func TestExecuteSteps_Success(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -107,6 +115,9 @@ func TestExecuteSteps_Success(t *testing.T) {
 	}
 }
 
+// TestExecuteSteps_BootstrapFailure verifies bootstrap fails fast on first error.
+// Test: Executes steps where step2 fails
+// Expected: Execution stops at step2, step3 never executes, returns error with StepCount=2
 func TestExecuteSteps_BootstrapFailure(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -149,6 +160,9 @@ func TestExecuteSteps_BootstrapFailure(t *testing.T) {
 	}
 }
 
+// TestExecuteSteps_UnbootstrapContinuesOnFailure verifies unbootstrap continues after failures.
+// Test: Executes unbootstrap steps where step2 fails
+// Expected: All 3 steps execute despite failure, result shows Success=false but StepCount=3
 func TestExecuteSteps_UnbootstrapContinuesOnFailure(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -190,6 +204,9 @@ func TestExecuteSteps_UnbootstrapContinuesOnFailure(t *testing.T) {
 	}
 }
 
+// TestExecuteSteps_SkipsCompletedSteps verifies already-completed steps are skipped.
+// Test: Executes steps where step1 and step3 are marked as completed
+// Expected: Only step2 executes, completed steps are skipped but counted as successful
 func TestExecuteSteps_SkipsCompletedSteps(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -230,6 +247,9 @@ func TestExecuteSteps_SkipsCompletedSteps(t *testing.T) {
 	}
 }
 
+// TestExecuteSteps_ValidationFailure verifies bootstrap fails when validation fails.
+// Test: Executes a step that fails validation (before execution)
+// Expected: Step never executes, returns error indicating validation failure
 func TestExecuteSteps_ValidationFailure(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -265,6 +285,9 @@ func TestExecuteSteps_ValidationFailure(t *testing.T) {
 	}
 }
 
+// TestCountSuccessfulSteps verifies counting of successful steps from results.
+// Test: Counts successful steps in a mixed success/failure result set
+// Expected: Returns count of 3 successful steps out of 4 total
 func TestCountSuccessfulSteps(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -284,6 +307,9 @@ func TestCountSuccessfulSteps(t *testing.T) {
 	}
 }
 
+// TestCreateStepResult verifies StepResult creation with timing and status.
+// Test: Creates step results for both successful and failed scenarios
+// Expected: StepResult contains correct name, success status, duration, and error message
 func TestCreateStepResult(t *testing.T) {
 	cfg := &config.Config{}
 	logger := logrus.New()
@@ -322,6 +348,9 @@ func TestCreateStepResult(t *testing.T) {
 	}
 }
 
+// TestExecutionResult verifies ExecutionResult structure and field population.
+// Test: Creates an ExecutionResult with multiple step results
+// Expected: All fields (Success, StepCount, Duration, StepResults) are properly populated
 func TestExecutionResult(t *testing.T) {
 	result := &ExecutionResult{
 		Success:   true,

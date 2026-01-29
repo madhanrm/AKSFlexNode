@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestRoleDefinitionIDs verifies Azure role definition ID mappings.
+// Test: Validates roleDefinitionIDs map contains all required Azure roles with correct GUIDs
+// Expected: Map should contain Reader, Contributor, Network Contributor, and AKS admin roles
 func TestRoleDefinitionIDs(t *testing.T) {
 	expectedRoles := map[string]string{
 		"Reader":              "acdd72a7-3385-48ef-bd42-f606fba81ae7",
@@ -24,6 +27,9 @@ func TestRoleDefinitionIDs(t *testing.T) {
 	}
 }
 
+// TestArcServices verifies Azure Arc service names list.
+// Test: Validates arcServices array contains all required Arc services
+// Expected: Array should contain himdsd, gcarcservice, and extd services
 func TestArcServices(t *testing.T) {
 	expectedServices := []string{"himdsd", "gcarcservice", "extd"}
 	
@@ -38,6 +44,9 @@ func TestArcServices(t *testing.T) {
 	}
 }
 
+// TestRoleDefinitionIDsAreGUIDs verifies role definition IDs are valid GUIDs.
+// Test: Checks all role definition IDs have correct GUID format (36 chars with dashes)
+// Expected: All IDs should be properly formatted GUIDs with dashes at positions 8, 13, 18, 23
 func TestRoleDefinitionIDsAreGUIDs(t *testing.T) {
 	// Test that all role definition IDs are in GUID format
 	for role, id := range roleDefinitionIDs {

@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+// TestNodeStatus verifies NodeStatus structure serialization and deserialization.
+// Test: Creates a NodeStatus with all fields populated, marshals to JSON, then unmarshals back
+// Expected: All fields (versions, running status, Arc status) should round-trip correctly through JSON
 func TestNodeStatus(t *testing.T) {
 	now := time.Now()
 	
@@ -68,6 +71,9 @@ func TestNodeStatus(t *testing.T) {
 	}
 }
 
+// TestArcStatus verifies ArcStatus structure in different connection states.
+// Test: Tests Arc status in various states (registered+connected, registered only, not registered)
+// Expected: All Arc status fields should serialize/deserialize correctly in all states
 func TestArcStatus(t *testing.T) {
 	now := time.Now()
 	
@@ -139,6 +145,9 @@ func TestArcStatus(t *testing.T) {
 	}
 }
 
+// TestNodeStatus_EmptyStatus verifies empty NodeStatus handles default values correctly.
+// Test: Creates empty NodeStatus, marshals and unmarshals
+// Expected: Boolean fields should default to false, serialization should succeed
 func TestNodeStatus_EmptyStatus(t *testing.T) {
 	status := &NodeStatus{}
 	
@@ -164,6 +173,9 @@ func TestNodeStatus_EmptyStatus(t *testing.T) {
 	}
 }
 
+// TestNodeStatus_JSONFieldNames verifies JSON field names match expected camelCase format.
+// Test: Marshals NodeStatus to JSON and checks field names in output
+// Expected: All fields should use camelCase naming (kubeletVersion, not KubeletVersion)
 func TestNodeStatus_JSONFieldNames(t *testing.T) {
 	status := &NodeStatus{
 		KubeletVersion:    "v1.26.0",

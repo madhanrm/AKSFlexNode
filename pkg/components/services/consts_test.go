@@ -5,6 +5,9 @@ import (
 	"time"
 )
 
+// TestServicesConstants verifies service name constants for system services.
+// Test: Validates containerd and kubelet service names
+// Expected: Service names should match systemd service unit names (without .service extension)
 func TestServicesConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -24,6 +27,9 @@ func TestServicesConstants(t *testing.T) {
 	}
 }
 
+// TestServiceStartupTimeout verifies the service startup timeout constant.
+// Test: Checks ServiceStartupTimeout value
+// Expected: Timeout should be 30 seconds for service startup operations
 func TestServiceStartupTimeout(t *testing.T) {
 	expected := 30 * time.Second
 	if ServiceStartupTimeout != expected {

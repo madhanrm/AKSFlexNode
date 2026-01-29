@@ -7,6 +7,9 @@ import (
 	"go.goms.io/aks/AKSFlexNode/pkg/config"
 )
 
+// TestNewAuthProvider verifies that the AuthProvider constructor returns a valid instance.
+// Test: Creates a new AuthProvider using the constructor
+// Expected: AuthProvider should not be nil
 func TestNewAuthProvider(t *testing.T) {
 	provider := NewAuthProvider()
 	if provider == nil {
@@ -14,6 +17,10 @@ func TestNewAuthProvider(t *testing.T) {
 	}
 }
 
+// TestArcCredential verifies that ArcCredential method can be called without panicking.
+// Test: Attempts to create Azure Arc managed identity credential
+// Expected: Method should not panic (error is expected in non-Arc environments)
+// Note: Will fail in test environment without Arc MSI, which is expected behavior
 func TestArcCredential(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -30,6 +37,9 @@ func TestArcCredential(t *testing.T) {
 	}
 }
 
+// TestServiceCredential verifies service principal credential creation with valid configuration.
+// Test: Creates credentials using service principal (tenant ID, client ID, client secret)
+// Expected: Credential object should be created successfully without errors
 func TestServiceCredential(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -72,6 +82,10 @@ func TestServiceCredential(t *testing.T) {
 	}
 }
 
+// TestCLICredential verifies Azure CLI credential creation without panicking.
+// Test: Attempts to create Azure CLI credential
+// Expected: Method should not panic (error is expected without Azure CLI configured)
+// Note: Will fail in environments without Azure CLI installed/configured
 func TestCLICredential(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -87,6 +101,9 @@ func TestCLICredential(t *testing.T) {
 	}
 }
 
+// TestUserCredential verifies the correct credential type is selected based on configuration.
+// Test: Creates credentials with and without service principal configuration
+// Expected: Uses service principal when configured, falls back to Azure CLI otherwise
 func TestUserCredential(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -136,6 +153,9 @@ func TestUserCredential(t *testing.T) {
 	}
 }
 
+// TestGetAccessToken verifies access token retrieval for default ARM resource scope.
+// Test: Attempts to get access token using test credentials for Azure Resource Manager
+// Expected: Should fail with test credentials but not panic
 func TestGetAccessToken(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -166,6 +186,9 @@ func TestGetAccessToken(t *testing.T) {
 	}
 }
 
+// TestGetAccessTokenForResource verifies access token retrieval for specific resource scopes.
+// Test: Attempts to get access tokens for ARM and Microsoft Graph resources
+// Expected: Should fail with test credentials but handle different resource scopes correctly
 func TestGetAccessTokenForResource(t *testing.T) {
 	provider := NewAuthProvider()
 	
@@ -214,6 +237,9 @@ func TestGetAccessTokenForResource(t *testing.T) {
 	}
 }
 
+// TestCheckCLIAuthStatus verifies Azure CLI authentication status check.
+// Test: Checks if user is authenticated via Azure CLI
+// Expected: May pass or fail depending on environment (error expected if not logged in)
 func TestCheckCLIAuthStatus(t *testing.T) {
 	provider := NewAuthProvider()
 	ctx := context.Background()

@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestKubeBinariesConstants verifies all Kubernetes binary path constants.
+// Test: Validates binary directory, binary names, and full paths for kubectl, kubelet, kubeadm
+// Expected: All paths should match standard Kubernetes installation locations (/usr/local/bin)
 func TestKubeBinariesConstants(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -30,6 +33,9 @@ func TestKubeBinariesConstants(t *testing.T) {
 	}
 }
 
+// TestKubeBinariesVariables verifies Kubernetes download configuration variables and binary paths array.
+// Test: Validates filename template, URL template, tar path, and binary paths array
+// Expected: Variables should have proper format specifiers, array should contain all 3 binary paths
 func TestKubeBinariesVariables(t *testing.T) {
 	if kubernetesFileName == "" {
 		t.Error("kubernetesFileName should not be empty")

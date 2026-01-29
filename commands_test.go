@@ -4,6 +4,9 @@ import (
 	"testing"
 )
 
+// TestNewAgentCommand verifies that the agent command is created properly with all required fields.
+// Test: Creates an agent command and validates its structure
+// Expected: Command should be non-nil with Use="agent", non-empty descriptions, and RunE function set
 func TestNewAgentCommand(t *testing.T) {
 	cmd := NewAgentCommand()
 	
@@ -28,6 +31,9 @@ func TestNewAgentCommand(t *testing.T) {
 	}
 }
 
+// TestNewUnbootstrapCommand verifies that the unbootstrap command is created properly with all required fields.
+// Test: Creates an unbootstrap command and validates its structure
+// Expected: Command should be non-nil with Use="unbootstrap", non-empty descriptions, and RunE function set
 func TestNewUnbootstrapCommand(t *testing.T) {
 	cmd := NewUnbootstrapCommand()
 	
@@ -52,6 +58,9 @@ func TestNewUnbootstrapCommand(t *testing.T) {
 	}
 }
 
+// TestNewVersionCommand verifies that the version command is created properly with all required fields.
+// Test: Creates a version command and validates its structure
+// Expected: Command should be non-nil with Use="version", non-empty descriptions, and Run function set
 func TestNewVersionCommand(t *testing.T) {
 	cmd := NewVersionCommand()
 	
@@ -76,6 +85,9 @@ func TestNewVersionCommand(t *testing.T) {
 	}
 }
 
+// TestVersionVariables verifies that version variables (set at build time via ldflags) can be modified.
+// Test: Saves current values, sets test values, verifies they're set correctly, then restores originals
+// Expected: All three variables (Version, GitCommit, BuildTime) should be settable and readable
 func TestVersionVariables(t *testing.T) {
 	// Test that version variables can be set
 	oldVersion := Version
@@ -104,6 +116,9 @@ func TestVersionVariables(t *testing.T) {
 	BuildTime = oldBuildTime
 }
 
+// TestAllCommands is a table-driven test that verifies all CLI commands can be created without errors.
+// Test: Iterates through all command types (agent, unbootstrap, version) and creates each one
+// Expected: All commands should be created successfully and return non-nil objects
 func TestAllCommands(t *testing.T) {
 	// Verify all command constructors work properly
 	tests := []struct {
