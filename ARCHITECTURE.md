@@ -3,6 +3,7 @@
 ## Table of Contents
 
 - [Overview](#overview)
+- [Platform Support](#platform-support)
 - [High-Level Architecture](#high-level-architecture)
 - [System Components](#system-components)
 - [Data Flow & Lifecycle](#data-flow--lifecycle)
@@ -14,14 +15,57 @@
 
 ## Overview
 
-AKS Flex Node transforms non-Azure Ubuntu VMs into fully managed Azure Kubernetes Service (AKS) worker nodes through Azure Arc integration.
+AKS Flex Node transforms non-Azure VMs into fully managed Azure Kubernetes Service (AKS) worker nodes through Azure Arc integration.
 
 **Key Technologies:**
 - **Language:** Go 1.24+
-- **Target Platform:** Ubuntu 22.04.5 LTS (x86_64)
-- **Container Runtime:** containerd + runc
+- **Target Platforms:** Ubuntu 22.04/24.04 LTS, Windows Server 2022 (experimental)
+- **Container Runtime:** containerd + runc (Linux), containerd + runhcs (Windows)
 - **Kubernetes Components:** kubelet, kubectl, kubeadm
 - **Azure Integration:** Azure Arc, Azure RBAC, Managed Identity
+
+---
+
+## Platform Support
+
+AKS Flex Node uses a platform abstraction layer to support multiple operating systems with a single codebase.
+
+### Linux Support (Production)
+
+| Component | Implementation |
+|-----------|---------------|
+| Container Runtime | containerd + runc |
+| Service Manager | systemd |
+| CNI | bridge, host-local, loopback |
+| System Config | sysctl, resolv.conf |
+
+### Windows Support (Experimental)
+
+| Component | Implementation |
+|-----------|---------------|
+| Container Runtime | containerd + runhcs (hcsshim) |
+| Service Manager | Windows Service Control Manager (SCM) |
+| CNI | win-bridge, flannel (planned) |
+| System Config | Windows Firewall, Registry |
+
+### Platform Abstraction
+
+The `pkg/platform/` package provides OS-agnostic interfaces:
+
+```go
+// Platform provides OS-specific operations
+type Platform interface {
+    OS() OS
+    Paths() *PathConfig
+    Service() ServiceManager
+    Command() CommandExecutor
+    FileSystem() FileSystem
+}
+```
+
+Build tags control which implementation is compiled:
+- `//go:build linux` - Linux-specific code
+- `//go:build windows` - Windows-specific code
 
 ---
 

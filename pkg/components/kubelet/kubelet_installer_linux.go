@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package kubelet
 
 import (
@@ -374,6 +377,7 @@ func (i *Installer) createKubeconfigWithExecCredential(ctx context.Context) erro
 	}
 
 	// Create cluster configuration based on whether we have CA cert
+	// Create cluster configuration - CA cert is required for secure connections
 	var clusterConfig string
 	if caCertData != "" {
 		clusterConfig = fmt.Sprintf(`- cluster:
@@ -381,10 +385,9 @@ func (i *Installer) createKubeconfigWithExecCredential(ctx context.Context) erro
     server: %s
   name: %s`, caCertData, serverURL, i.config.Azure.TargetCluster.Name)
 	} else {
-		clusterConfig = fmt.Sprintf(`- cluster:
-    insecure-skip-tls-verify: true
-    server: %s
-  name: %s`, serverURL, i.config.Azure.TargetCluster.Name)
+		// CA certificate is required for secure cluster communication
+		// Falling back to insecure connections exposes the cluster to MITM attacks
+		return fmt.Errorf("CA certificate data is required but not available from cluster credentials; cannot configure secure kubelet connection")
 	}
 
 	// Create kubeconfig with exec credential provider pointing to token script

@@ -23,9 +23,14 @@ build-linux-arm64:
 	@echo "Building for Linux ARM64..."
 	@GOOS=linux GOARCH=arm64 go build -ldflags "$(LDFLAGS)" -o aks-flex-node-linux-arm64 .
 
+.PHONY: build-windows-amd64
+build-windows-amd64:
+	@echo "Building for Windows AMD64..."
+	@GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o aks-flex-node-windows-amd64.exe .
+
 # Build all supported platforms
 .PHONY: build-all
-build-all: build-linux-amd64 build-linux-arm64
+build-all: build-linux-amd64 build-linux-arm64 build-windows-amd64
 	@echo "Built binaries for all supported platforms"
 
 # Create release archives
@@ -39,11 +44,16 @@ package-linux-arm64: build-linux-arm64
 	@echo "Packaging Linux ARM64 binary..."
 	@tar -czf aks-flex-node-linux-arm64.tar.gz aks-flex-node-linux-arm64
 
+.PHONY: package-windows-amd64
+package-windows-amd64: build-windows-amd64
+	@echo "Packaging Windows AMD64 binary..."
+	@zip -q aks-flex-node-windows-amd64.zip aks-flex-node-windows-amd64.exe
+
 # Package all supported platforms
 .PHONY: package-all
-package-all: package-linux-amd64 package-linux-arm64
+package-all: package-linux-amd64 package-linux-arm64 package-windows-amd64
 	@echo "Packaged all supported platforms"
-	@ls -la *.tar.gz
+	@ls -la *.tar.gz *.zip 2>/dev/null || true
 
 # Testing and quality checks
 .PHONY: test
@@ -122,15 +132,17 @@ help:
 	@echo "======================"
 	@echo ""
 	@echo "Build Targets:"
-	@echo "  build              Build for current platform"
-	@echo "  build-linux-amd64  Build for Linux AMD64"
-	@echo "  build-linux-arm64  Build for Linux ARM64"
-	@echo "  build-all          Build for all supported platforms"
+	@echo "  build               Build for current platform"
+	@echo "  build-linux-amd64   Build for Linux AMD64"
+	@echo "  build-linux-arm64   Build for Linux ARM64"
+	@echo "  build-windows-amd64 Build for Windows AMD64"
+	@echo "  build-all           Build for all supported platforms"
 	@echo ""
 	@echo "Package Targets:"
-	@echo "  package-linux-amd64 Package Linux AMD64 binary"
-	@echo "  package-linux-arm64 Package Linux ARM64 binary"
-	@echo "  package-all        Package all supported platforms"
+	@echo "  package-linux-amd64   Package Linux AMD64 binary"
+	@echo "  package-linux-arm64   Package Linux ARM64 binary"
+	@echo "  package-windows-amd64 Package Windows AMD64 binary"
+	@echo "  package-all           Package all supported platforms"
 	@echo ""
 	@echo "Test & Quality Targets:"
 	@echo "  test               Run tests"

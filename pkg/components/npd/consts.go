@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package npd
 
 // NPD binary paths to check and manage

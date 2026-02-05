@@ -3,12 +3,13 @@ package arc
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v3"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/hybridcompute/armhybridcompute"
 	"github.com/sirupsen/logrus"
+
+	"go.goms.io/aks/AKSFlexNode/pkg/platform"
 )
 
 // UnInstaller handles Azure Arc cleanup operations
@@ -148,13 +149,13 @@ func (u *UnInstaller) removeRBACRoles(ctx context.Context, arcMachine *armhybrid
 func (u *UnInstaller) disconnectArcMachine(ctx context.Context) error {
 	u.logger.Info("Disconnecting Arc machine")
 
-	cmd := exec.CommandContext(ctx, "sudo", "azcmagent", "disconnect", "--force-local-only")
-	output, err := cmd.CombinedOutput()
+	p := platform.Current()
+	output, err := p.Command().RunPrivilegedWithOutput(ctx, "azcmagent", "disconnect", "--force-local-only")
 	if err != nil {
-		return fmt.Errorf("failed to disconnect Arc machine: %w, output: %s", err, string(output))
+		return fmt.Errorf("failed to disconnect Arc machine: %w, output: %s", err, output)
 	}
 
-	u.logger.Infof("Arc machine disconnected: %s", string(output))
+	u.logger.Infof("Arc machine disconnected: %s", output)
 	return nil
 }
 
