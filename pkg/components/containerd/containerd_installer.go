@@ -7,22 +7,24 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"go.goms.io/aks/AKSFlexNode/pkg/components/cni"
 	"go.goms.io/aks/AKSFlexNode/pkg/config"
+	"go.goms.io/aks/AKSFlexNode/pkg/platform"
 	"go.goms.io/aks/AKSFlexNode/pkg/utils"
 )
 
 // Installer handles containerd installation operations
 type Installer struct {
-	config *config.Config
-	logger *logrus.Logger
+	config   *config.Config
+	logger   *logrus.Logger
+	platform platform.Platform
 }
 
 // NewInstaller creates a new containerd Installer
 func NewInstaller(logger *logrus.Logger) *Installer {
 	return &Installer{
-		config: config.GetConfig(),
-		logger: logger,
+		config:   config.GetConfig(),
+		logger:   logger,
+		platform: platform.Current(),
 	}
 }
 
@@ -52,25 +54,32 @@ func (i *Installer) Execute(ctx context.Context) error {
 }
 
 func (i *Installer) prepareContainerdDirectories() error {
+	fs := i.platform.FileSystem()
+
 	for _, dir := range containerdDirs {
 		// Create directory if it doesn't exist
-		if !utils.DirectoryExists(dir) {
-			if err := utils.RunSystemCommand("mkdir", "-p", dir); err != nil {
+		if !fs.DirectoryExists(dir) {
+			if err := fs.CreateDirectory(dir); err != nil {
 				return fmt.Errorf("failed to create containerd directory %s: %w", dir, err)
 			}
 		}
 
-		// Clean up any existing configurations to start fresh
+		// Clean up any existing configurations to start fresh (config dir only)
 		if dir == defaultContainerdConfigDir {
 			i.logger.Debugf("Cleaning existing containerd configurations in: %s", dir)
-			if err := utils.RunSystemCommand("rm", "-rf", dir+"/*"); err != nil {
-				return fmt.Errorf("failed to clean containerd configuration directory: %w", err)
+			if platform.IsLinux() {
+				if err := utils.RunSystemCommand("rm", "-rf", dir+"/*"); err != nil {
+					return fmt.Errorf("failed to clean containerd configuration directory: %w", err)
+				}
 			}
+			// On Windows, we'll just overwrite files
 		}
 
-		// Set proper permissions
-		if err := utils.RunSystemCommand("chmod", "-R", "0755", dir); err != nil {
-			logrus.Warnf("Failed to set permissions for containerd directory %s: %v", dir, err)
+		// Set proper permissions (Linux only)
+		if platform.IsLinux() {
+			if err := utils.RunSystemCommand("chmod", "-R", "0755", dir); err != nil {
+				logrus.Warnf("Failed to set permissions for containerd directory %s: %v", dir, err)
+			}
 		}
 	}
 	return nil
@@ -91,51 +100,65 @@ func (i *Installer) installContainerd() error {
 	}
 
 	// Construct download URL
-	containerdFileName, containerdURL, err := i.constructContainerdDownloadURL()
+	fileName, downloadURL, err := i.constructContainerdDownloadURL()
 	if err != nil {
 		return fmt.Errorf("failed to construct containerd download URL: %w", err)
 	}
 
-	// Download the containerd plugin tar file into tmp directory
-	tempFile := fmt.Sprintf("/tmp/%s", containerdFileName)
-	// Clean up any existing containerd temp files from /tmp directory to avoid conflicts
-	if err := utils.RunSystemCommand("bash", "-c", fmt.Sprintf("rm -f %s", tempFile)); err != nil {
-		logrus.Warnf("Failed to clean up existing containerd temp files from /tmp: %s", err)
-	}
+	// Download the containerd tar file into temp directory
+	fs := i.platform.FileSystem()
+	paths := i.platform.Paths()
+	tempFile := filepath.Join(paths.TempDir, fileName)
+
+	// Clean up any existing temp files
+	_ = fs.RemoveFile(tempFile)
 	defer func() {
-		if err := utils.RunCleanupCommand(tempFile); err != nil {
-			logrus.Warnf("Failed to clean up temp file %s: %v", tempFile, err)
-		}
+		_ = fs.RemoveFile(tempFile)
 	}()
 
-	i.logger.Infof("Downloading containerd from %s into %s", containerdURL, tempFile)
-	if err := utils.DownloadFile(containerdURL, tempFile); err != nil {
-		return fmt.Errorf("failed to download containerd from %s: %w", containerdURL, err)
+	i.logger.Infof("Downloading containerd from %s into %s", downloadURL, tempFile)
+	if err := fs.DownloadFile(downloadURL, tempFile); err != nil {
+		return fmt.Errorf("failed to download containerd from %s: %w", downloadURL, err)
 	}
 
-	// Extract containerd binaries directly to /usr/bin, stripping the 'bin/' prefix
-	i.logger.Info("Extracting containerd binaries to /usr/bin")
-	if err := utils.RunSystemCommand("tar", "-C", systemBinDir, "--strip-components=1", "-xzf", tempFile, "bin/"); err != nil {
+	// Extract containerd binaries
+	if err := i.extractContainerd(tempFile); err != nil {
 		return fmt.Errorf("failed to extract containerd binaries: %w", err)
 	}
 
-	// Ensure all extracted binaries are executable and have proper permissions
-	i.logger.Info("Setting executable permissions on containerd binaries")
-	for _, binary := range containerdBinaries {
-		binaryPath := filepath.Join(systemBinDir, binary)
-		if err := utils.RunSystemCommand("chmod", "0755", binaryPath); err != nil {
-			return fmt.Errorf("failed to set executable permissions on containerd binaries: %w", err)
+	// Set executable permissions (Linux only)
+	if platform.IsLinux() {
+		i.logger.Info("Setting executable permissions on containerd binaries")
+		for _, binary := range containerdBinaries {
+			binaryPath := filepath.Join(systemBinDir, binary)
+			if err := utils.RunSystemCommand("chmod", "0755", binaryPath); err != nil {
+				return fmt.Errorf("failed to set executable permissions on containerd binaries: %w", err)
+			}
 		}
 	}
 
 	return nil
 }
 
+func (i *Installer) extractContainerd(archivePath string) error {
+	if platform.IsWindows() {
+		// Windows: extract to Program Files\containerd
+		i.logger.Infof("Extracting containerd binaries to %s", systemBinDir)
+		return i.platform.FileSystem().ExtractTarGz(archivePath, i.platform.Paths().ContainerdConfigDir)
+	}
+
+	// Linux: extract to /usr/bin, stripping the 'bin/' prefix
+	i.logger.Infof("Extracting containerd binaries to %s", systemBinDir)
+	return utils.RunSystemCommand("tar", "-C", systemBinDir, "--strip-components=1", "-xzf", archivePath, "bin/")
+}
+
 func (i *Installer) canSkipContainerdInstallation() bool {
+	fs := i.platform.FileSystem()
+
 	// Check if containerd binary exists
 	for _, binary := range containerdBinaries {
 		binaryPath := filepath.Join(systemBinDir, binary)
-		if !utils.FileExists(binaryPath) {
+		if !fs.FileExists(binaryPath) {
 			i.logger.Debugf("containerd binary %s does not exist", binaryPath)
 			return false
 		}
@@ -160,12 +183,21 @@ func (i *Installer) canSkipContainerdInstallation() bool {
 // it returns the file name and URL for downloading containerd
 func (i *Installer) constructContainerdDownloadURL() (string, string, error) {
 	containerdVersion := i.getContainerdVersion()
-	arch, err := utils.GetArc()
+	arch, err := i.platform.FileSystem().GetArchitecture()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get architecture: %w", err)
 	}
-	url := fmt.Sprintf(containerdDownloadURL, containerdVersion, containerdVersion, arch)
-	fileName := fmt.Sprintf(containerdFileName, containerdVersion, arch)
+
+	var url, fileName string
+	if platform.IsWindows() {
+		// Windows uses a fixed architecture in the filename
+		fileName = fmt.Sprintf("containerd-%s-windows-amd64.tar.gz", containerdVersion)
+		url = fmt.Sprintf("https://github.com/containerd/containerd/releases/download/v%s/%s", containerdVersion, fileName)
+	} else {
+		fileName = fmt.Sprintf(containerdFileName, containerdVersion, arch)
+		url = fmt.Sprintf(containerdDownloadURL, containerdVersion, containerdVersion, arch)
+	}
+
 	i.logger.Infof("Constructed containerd download URL: %s", url)
 	return fileName, url, nil
 }
@@ -173,18 +205,27 @@ func (i *Installer) constructContainerdDownloadURL() (string, string, error) {
 // cleanupExistingInstallation removes any existing containerd installation that may be corrupted
 func (i *Installer) cleanupExistingInstallation() error {
 	i.logger.Debug("Cleaning up existing containerd installation files")
+	fs := i.platform.FileSystem()
 
-	// Try to stop any processes that might be using containerd (best effort)
-	if err := utils.RunSystemCommand("pkill", "-f", "containerd"); err != nil {
-		i.logger.Debugf("No containerd processes found to kill (or pkill failed): %v", err)
+	// Try to stop containerd service
+	svc := i.platform.Service()
+	if svc.Exists("containerd") {
+		_ = svc.Stop("containerd")
 	}
 
-	// List of binaries to clean up
+	// On Linux, try to kill any running processes
+	if platform.IsLinux() {
+		if err := utils.RunSystemCommand("pkill", "-f", "containerd"); err != nil {
+			i.logger.Debugf("No containerd processes found to kill (or pkill failed): %v", err)
+		}
+	}
+
+	// Remove binaries
 	for _, binary := range containerdBinaries {
 		binaryPath := filepath.Join(systemBinDir, binary)
-		if utils.FileExists(binaryPath) {
+		if fs.FileExists(binaryPath) {
 			i.logger.Debugf("Removing existing containerd binary: %s", binaryPath)
-			if err := utils.RunCleanupCommand(binaryPath); err != nil {
+			if err := fs.RemoveFile(binaryPath); err != nil {
 				i.logger.Warnf("Failed to remove %s: %v", binaryPath, err)
 			}
 		}
@@ -194,29 +235,59 @@ func (i *Installer) cleanupExistingInstallation() error {
 	return nil
 }
 
-// configure configures containerd service and systemd unit file
+// configure configures containerd service and configuration files
 func (i *Installer) configure() error {
-	// Create containerd systemd service
-	if err := i.createContainerdServiceFile(); err != nil {
-		return err
-	}
-
 	// Create containerd configuration
 	if err := i.createContainerdConfigFile(); err != nil {
 		return err
 	}
 
+	if platform.IsWindows() {
+		return i.configureWindows()
+	}
+	return i.configureLinux()
+}
+
+func (i *Installer) configureLinux() error {
+	// Create containerd systemd service
+	if err := i.createLinuxServiceFile(); err != nil {
+		return err
+	}
+
 	// Reload systemd to pick up the new containerd service configuration
 	i.logger.Info("Reloading systemd to pick up containerd configuration changes")
-	if err := utils.RunSystemCommand("systemctl", "daemon-reload"); err != nil {
-		return fmt.Errorf("failed to reload systemd after containerd configuration: %w", err)
+	return i.platform.Service().ReloadDaemon()
+}
+
+func (i *Installer) configureWindows() error {
+	// On Windows, containerd can register itself as a service
+	i.logger.Info("Registering containerd as Windows service")
+
+	containerdExe := filepath.Join(i.platform.Paths().ContainerdBinDir, "containerd.exe")
+	configPath := filepath.Join(i.platform.Paths().ContainerdConfigDir, "config.toml")
+
+	// Use containerd's built-in service registration
+	_, err := utils.RunCommandWithOutput(containerdExe, "--register-service", "--config", configPath)
+	if err != nil {
+		// If built-in registration fails, use platform service manager
+		i.logger.Warnf("Built-in service registration failed, using platform service manager: %v", err)
+
+		svcConfig := &platform.ServiceConfig{
+			Name:          "containerd",
+			DisplayName:   "containerd container runtime",
+			Description:   "containerd container runtime for Kubernetes",
+			BinaryPath:    containerdExe,
+			Args:          []string{"--config", configPath},
+			RestartPolicy: platform.RestartAlways,
+		}
+		return i.platform.Service().Install(svcConfig)
 	}
 
 	return nil
 }
 
-// createContainerdServiceFile creates the containerd systemd service file
-func (i *Installer) createContainerdServiceFile() error {
+// createLinuxServiceFile creates the containerd systemd service file
+func (i *Installer) createLinuxServiceFile() error {
 	containerdService := `[Unit]
 Description=containerd container runtime
 Documentation=https://containerd.io
@@ -253,7 +324,7 @@ WantedBy=multi-user.target`
 		return fmt.Errorf("failed to install containerd service file: %w", err)
 	}
 
-	// Set proper permissions: root can modify the service, but everyone else can only read it, and nobody can execute it
+	// Set proper permissions
 	if err := utils.RunSystemCommand("chmod", "644", containerdServiceFile); err != nil {
 		return fmt.Errorf("failed to set containerd service file permissions: %w", err)
 	}
@@ -263,7 +334,32 @@ WantedBy=multi-user.target`
 
 // createContainerdConfigFile creates the containerd configuration file
 func (i *Installer) createContainerdConfigFile() error {
-	containerdConfig := fmt.Sprintf(`version = 2
+	var containerdConfig string
+
+	if platform.IsWindows() {
+		containerdConfig = i.generateWindowsConfig()
+	} else {
+		containerdConfig = i.generateLinuxConfig()
+	}
+
+	fs := i.platform.FileSystem()
+
+	// Ensure config directory exists
+	if err := fs.CreateDirectory(defaultContainerdConfigDir); err != nil {
+		return fmt.Errorf("failed to create containerd config directory: %w", err)
+	}
+
+	// Write config file
+	if err := fs.WriteFile(containerdConfigFile, []byte(containerdConfig), 0644); err != nil {
+		return fmt.Errorf("failed to write containerd config file: %w", err)
+	}
+
+	return nil
+}
+
+func (i *Installer) generateLinuxConfig() string {
+	paths := i.platform.Paths()
+	return fmt.Sprintf(`version = 2
 oom_score = 0
 [plugins."io.containerd.grpc.v1.cri"]
 	sandbox_image = "%s"
@@ -288,28 +384,30 @@ oom_score = 0
 [metrics]
 	address = "%s"`,
 		i.getPauseImage(),
-		cni.DefaultCNIBinDir,
-		cni.DefaultCNIConfDir,
+		paths.CNIBinDir,
+		paths.CNIConfDir,
 		i.getMetricsAddress())
+}
 
-	// Create a tmp containerd config file
-	tempConfigFile, err := utils.CreateTempFile("containerd-config-*.toml", []byte(containerdConfig))
-	if err != nil {
-		return fmt.Errorf("failed to create temporary containerd config file: %w", err)
-	}
-	defer utils.CleanupTempFile(tempConfigFile.Name())
-
-	// Copy the temp file to the final location using sudo
-	if err := utils.RunSystemCommand("cp", tempConfigFile.Name(), containerdConfigFile); err != nil {
-		return fmt.Errorf("failed to install containerd config file: %w", err)
-	}
-
-	// Set proper permissions
-	if err := utils.RunSystemCommand("chmod", "644", containerdConfigFile); err != nil {
-		return fmt.Errorf("failed to set containerd config file permissions: %w", err)
-	}
-
-	return nil
+func (i *Installer) generateWindowsConfig() string {
+	paths := i.platform.Paths()
+	// Windows containerd config based on ECPWindowsHost reference
+	return fmt.Sprintf(`version = 2
+[plugins."io.containerd.grpc.v1.cri"]
+	sandbox_image = "%s"
+	[plugins."io.containerd.grpc.v1.cri".containerd]
+		default_runtime_name = "runhcs-wcow-process"
+		[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runhcs-wcow-process]
+			runtime_type = "io.containerd.runhcs.v1"
+	[plugins."io.containerd.grpc.v1.cri".cni]
+		bin_dir = "%s"
+		conf_dir = "%s"
+[metrics]
+	address = "%s"`,
+		i.getWindowsPauseImage(),
+		paths.CNIBinDir,
+		paths.CNIConfDir,
+		i.getMetricsAddress())
 }
 
 // Validate validates preconditions before execution
@@ -324,25 +422,34 @@ func (i *Installer) GetName() string {
 
 // IsCompleted checks if containerd and required plugins are installed
 func (i *Installer) IsCompleted(ctx context.Context) bool {
+	fs := i.platform.FileSystem()
+
 	// Check if containerd binaries are installed and functional
 	if !i.canSkipContainerdInstallation() {
 		return false
 	}
 
 	// Check if containerd config file exists
-	if !utils.FileExists(containerdConfigFile) {
+	if !fs.FileExists(containerdConfigFile) {
 		return false
 	}
 
-	// Check if containerd service file exists
-	if !utils.FileExists(containerdServiceFile) {
-		return false
-	}
+	if platform.IsLinux() {
+		// Check if containerd service file exists
+		if !fs.FileExists(containerdServiceFile) {
+			return false
+		}
 
-	// Verify systemd can parse the service file
-	if err := utils.RunSystemCommand("systemctl", "check", "containerd"); err != nil {
-		i.logger.Debugf("containerd service file is invalid: %v", err)
-		return false
+		// Verify systemd can parse the service file
+		if err := utils.RunSystemCommand("systemctl", "check", "containerd"); err != nil {
+			i.logger.Debugf("containerd service file is invalid: %v", err)
+			return false
+		}
+	} else {
+		// Windows: check if service is registered
+		if !i.platform.Service().Exists("containerd") {
+			return false
+		}
 	}
 
 	return true
@@ -362,6 +469,14 @@ func (i *Installer) getPauseImage() string {
 	}
 	// Default pause image
 	return "mcr.microsoft.com/oss/kubernetes/pause:3.6"
+}
+
+func (i *Installer) getWindowsPauseImage() string {
+	if i.config.Containerd.PauseImage != "" {
+		return i.config.Containerd.PauseImage
+	}
+	// Windows pause image (based on ECPWindowsHost)
+	return "mcr.microsoft.com/oss/kubernetes/pause:3.10"
 }
 
 func (i *Installer) getMetricsAddress() string {

@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package runc
 
 // Runc binary paths to check and manage
