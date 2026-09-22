@@ -3,24 +3,28 @@ package kube_binaries
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/sirupsen/logrus"
 	"go.goms.io/aks/AKSFlexNode/pkg/config"
+	"go.goms.io/aks/AKSFlexNode/pkg/platform"
 	"go.goms.io/aks/AKSFlexNode/pkg/utils"
 )
 
 // Installer handles Kube binaries installation operations
 type Installer struct {
-	config *config.Config
-	logger *logrus.Logger
+	config   *config.Config
+	logger   *logrus.Logger
+	platform platform.Platform
 }
 
 // NewInstaller creates a new Kube binaries Installer
 func NewInstaller(logger *logrus.Logger) *Installer {
 	return &Installer{
-		config: config.GetConfig(),
-		logger: logger,
+		config:   config.GetConfig(),
+		logger:   logger,
+		platform: platform.Current(),
 	}
 }
 
@@ -51,39 +55,101 @@ func (i *Installer) installKubeBinaries() error {
 		return fmt.Errorf("failed to construct Kubernetes download URL: %w", err)
 	}
 
-	// Download the Kubernetes tar file into tmp directory
-	tempFile := fmt.Sprintf("/tmp/%s", fileName)
-	// Clean up any existing Kubernetes temp files from /tmp directory to avoid conflicts
-	if err := utils.RunSystemCommand("bash", "-c", fmt.Sprintf("rm -f %s", tempFile)); err != nil {
-		logrus.Warnf("Failed to clean up existing Kubernetes temp files from /tmp: %s", err)
-	}
+	// Download the Kubernetes tar file into temp directory
+	fs := i.platform.FileSystem()
+	paths := i.platform.Paths()
+	tempFile := filepath.Join(paths.TempDir, fileName)
+
+	// Clean up any existing temp files
+	_ = fs.RemoveFile(tempFile)
 	defer func() {
-		if err := utils.RunCleanupCommand(tempFile); err != nil {
-			logrus.Warnf("Failed to clean up temp file %s: %v", tempFile, err)
-		}
+		_ = fs.RemoveFile(tempFile)
 	}()
 
 	// Download Kube binaries with validation
 	i.logger.Infof("Downloading Kube binaries from %s into %s", url, tempFile)
-	if err := utils.DownloadFile(url, tempFile); err != nil {
+	if err := fs.DownloadFile(url, tempFile); err != nil {
 		return fmt.Errorf("failed to download Kube binaries from %s: %w", url, err)
 	}
 
-	// Extract Kubernetes binaries directly to binDir, stripping the 'kubernetes/node/bin/' prefix
+	// Ensure bin directory exists
+	if err := fs.CreateDirectory(binDir); err != nil {
+		return fmt.Errorf("failed to create bin directory %s: %w", binDir, err)
+	}
+
+	// Extract Kubernetes binaries
 	i.logger.Infof("Extracting Kubernetes binaries to %s", binDir)
-	if err := utils.RunSystemCommand("tar", "-C", binDir, "--strip-components=3", "-xzf", tempFile, kubernetesTarPath); err != nil {
+	if err := i.extractKubeBinaries(tempFile); err != nil {
 		return fmt.Errorf("failed to extract Kubernetes binaries: %w", err)
 	}
 
-	// Ensure all extracted binaries are executable and have proper permissions
-	i.logger.Info("Setting executable permissions on Kubernetes binaries")
-	for _, binaryPath := range kubeBinariesPaths {
-		if err := utils.RunSystemCommand("chmod", "0755", binaryPath); err != nil {
-			return fmt.Errorf("failed to set executable permissions on Kubernetes binaries: %w", err)
+	// Ensure all extracted binaries are executable and have proper permissions (Linux only)
+	if platform.IsLinux() {
+		i.logger.Info("Setting executable permissions on Kubernetes binaries")
+		for _, binaryPath := range kubeBinariesPaths {
+			if err := utils.RunSystemCommand("chmod", "0755", binaryPath); err != nil {
+				return fmt.Errorf("failed to set executable permissions on Kubernetes binaries: %w", err)
+			}
 		}
 	}
 
 	return nil
+}
+
+func (i *Installer) extractKubeBinaries(archivePath string) error {
+	if platform.IsWindows() {
+		// Windows: extract to temp location first, then move binaries to C:\k
+		fs := i.platform.FileSystem()
+		tempExtractDir := filepath.Join(i.platform.Paths().TempDir, "k8s-extract")
+
+		// Clean up temp directory if it exists
+		_ = fs.RemoveDirectory(tempExtractDir)
+
+		// Create temp extraction directory
+		if err := fs.CreateDirectory(tempExtractDir); err != nil {
+			return fmt.Errorf("failed to create temp extraction directory: %w", err)
+		}
+		defer func() {
+			_ = fs.RemoveDirectory(tempExtractDir)
+		}()
+
+		// Extract to temp directory
+		if err := fs.ExtractTarGz(archivePath, tempExtractDir); err != nil {
+			return fmt.Errorf("failed to extract archive: %w", err)
+		}
+
+		// Move required binaries from nested path to C:\k
+		srcDir := filepath.Join(tempExtractDir, "kubernetes", "node", "bin")
+		binaries := []string{"kubelet.exe", "kubectl.exe", "kubeadm.exe", "kube-proxy.exe"}
+
+		for _, bin := range binaries {
+			srcPath := filepath.Join(srcDir, bin)
+			dstPath := filepath.Join(binDir, bin)
+
+			// Check if source exists
+			if !fs.FileExists(srcPath) {
+				i.logger.Debugf("Binary %s not found in archive, skipping", bin)
+				continue
+			}
+
+			// Read source file
+			i.logger.Debugf("Copying %s to %s", srcPath, dstPath)
+			content, err := fs.ReadFile(srcPath)
+			if err != nil {
+				return fmt.Errorf("failed to read %s: %w", srcPath, err)
+			}
+
+			// Write to destination
+			if err := fs.WriteFile(dstPath, content, 0755); err != nil {
+				return fmt.Errorf("failed to write %s: %w", dstPath, err)
+			}
+		}
+
+		return nil
+	}
+
+	// Linux: extract to /usr/local/bin, stripping the 'kubernetes/node/bin/' prefix
+	return utils.RunSystemCommand("tar", "-C", binDir, "--strip-components=3", "-xzf", archivePath, kubernetesTarPath)
 }
 
 // IsCompleted checks if all Kube binaries are installed
@@ -107,8 +173,9 @@ func (i *Installer) Validate(ctx context.Context) error {
 
 // canSkipKubernetesInstallation checks if all Kube binaries are installed with the correct version
 func (i *Installer) canSkipKubernetesInstallation() bool {
+	fs := i.platform.FileSystem()
 	for _, binaryPath := range kubeBinariesPaths {
-		if !utils.FileExists(binaryPath) {
+		if !fs.FileExists(binaryPath) {
 			i.logger.Debugf("Kubernetes binary not found: %s", binaryPath)
 			return false
 		}
@@ -139,17 +206,20 @@ func (i *Installer) isKubeletVersionCorrect() bool {
 // cleanupExistingInstallation removes any existing Kubernetes installation that may be corrupted
 func (i *Installer) cleanupExistingInstallation() error {
 	i.logger.Debug("Cleaning up existing Kubernetes installation files")
+	fs := i.platform.FileSystem()
 
-	// Try to stop kubelet daemon process (best effort) - only kubelet runs as a daemon
-	if err := utils.RunSystemCommand("pkill", "-f", "kubelet"); err != nil {
-		i.logger.Debugf("No kubelet processes found to kill (or pkill failed): %v", err)
+	// Try to stop kubelet daemon process (best effort) - only on Linux
+	if platform.IsLinux() {
+		if err := utils.RunSystemCommand("pkill", "-f", "kubelet"); err != nil {
+			i.logger.Debugf("No kubelet processes found to kill (or pkill failed): %v", err)
+		}
 	}
 
 	// List of binaries to clean up
 	for _, binaryPath := range kubeBinariesPaths {
-		if utils.FileExists(binaryPath) {
+		if fs.FileExists(binaryPath) {
 			i.logger.Debugf("Removing existing Kubernetes binary: %s", binaryPath)
-			if err := utils.RunCleanupCommand(binaryPath); err != nil {
+			if err := fs.RemoveFile(binaryPath); err != nil {
 				i.logger.Warnf("Failed to remove %s: %v", binaryPath, err)
 			}
 		}
@@ -162,15 +232,24 @@ func (i *Installer) cleanupExistingInstallation() error {
 // constructKubeBinariesDownloadURL constructs the download URL for the specified Kubernetes version
 // it returns the file name and URL for downloading Kube binaries
 func (i *Installer) constructKubeBinariesDownloadURL() (string, string, error) {
-	arch, err := utils.GetArc()
+	arch, err := i.platform.FileSystem().GetArchitecture()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get architecture: %w", err)
 	}
 
 	kubernetesVersion := i.config.GetKubernetesVersion()
 	urlTemplate := i.getKubernetesURLTemplate()
-	url := fmt.Sprintf(urlTemplate, kubernetesVersion, arch)
-	fileName := fmt.Sprintf(kubernetesFileName, arch)
+
+	var url, fileName string
+	if platform.IsWindows() {
+		// Windows always uses amd64
+		fileName = kubernetesFileName
+		url = fmt.Sprintf(urlTemplate, kubernetesVersion, "amd64")
+	} else {
+		fileName = fmt.Sprintf(kubernetesFileName, arch)
+		url = fmt.Sprintf(urlTemplate, kubernetesVersion, arch)
+	}
+
 	i.logger.Infof("Constructed Kubernetes download URL: %s", url)
 	return fileName, url, nil
 }

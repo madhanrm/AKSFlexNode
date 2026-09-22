@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 
+	"go.goms.io/aks/AKSFlexNode/pkg/platform"
 	"go.goms.io/aks/AKSFlexNode/pkg/utils"
 )
 
@@ -38,6 +39,10 @@ func (i *Installer) Validate(ctx context.Context) error {
 	// Ensure Arc agent is installed and running
 	if !isArcAgentInstalled() {
 		i.logger.Info("Azure Arc agent not found")
+		if platform.IsWindows() {
+			return fmt.Errorf("azure Arc agent not found - please download and install from:\n" +
+				"https://aka.ms/azcmagent-windows")
+		}
 		return fmt.Errorf("azure Arc agent not found - please run the installation script first:\n" +
 			"curl -fsSL https://raw.githubusercontent.com/Azure/AKSFlexNode/main/scripts/install.sh | bash")
 	}

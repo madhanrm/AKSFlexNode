@@ -5,20 +5,22 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"go.goms.io/aks/AKSFlexNode/pkg/config"
-	"go.goms.io/aks/AKSFlexNode/pkg/utils"
+	"go.goms.io/aks/AKSFlexNode/pkg/platform"
 )
 
 // UnInstaller handles stopping and disabling system services
 type UnInstaller struct {
-	config *config.Config
-	logger *logrus.Logger
+	config   *config.Config
+	logger   *logrus.Logger
+	platform platform.Platform
 }
 
 // NewUnInstaller creates a new services unInstaller
 func NewUnInstaller(logger *logrus.Logger) *UnInstaller {
 	return &UnInstaller{
-		config: config.GetConfig(),
-		logger: logger,
+		config:   config.GetConfig(),
+		logger:   logger,
+		platform: platform.Current(),
 	}
 }
 
@@ -31,24 +33,37 @@ func (su *UnInstaller) GetName() string {
 func (su *UnInstaller) Execute(ctx context.Context) error {
 	su.logger.Info("Stopping and disabling services")
 
+	svc := su.platform.Service()
+
+	// Stop and disable node-problem-detector (optional)
+	if svc.Exists(NPDService) {
+		su.logger.Info("Stopping and disabling node-problem-detector service")
+		if err := svc.Stop(NPDService); err != nil {
+			su.logger.Warnf("Failed to stop node-problem-detector: %v", err)
+		}
+		if err := svc.Disable(NPDService); err != nil {
+			su.logger.Warnf("Failed to disable node-problem-detector: %v", err)
+		}
+	}
+
 	// Stop and disable kubelet
-	if utils.ServiceExists("kubelet") {
+	if svc.Exists(KubeletService) {
 		su.logger.Info("Stopping and disabling kubelet service")
-		if err := utils.StopService("kubelet"); err != nil {
+		if err := svc.Stop(KubeletService); err != nil {
 			su.logger.Warnf("Failed to stop kubelet: %v", err)
 		}
-		if err := utils.DisableService("kubelet"); err != nil {
+		if err := svc.Disable(KubeletService); err != nil {
 			su.logger.Warnf("Failed to disable kubelet: %v", err)
 		}
 	}
 
 	// Stop and disable containerd
-	if utils.ServiceExists("containerd") {
+	if svc.Exists(ContainerdService) {
 		su.logger.Info("Stopping and disabling containerd service")
-		if err := utils.StopService("containerd"); err != nil {
+		if err := svc.Stop(ContainerdService); err != nil {
 			su.logger.Warnf("Failed to stop containerd: %v", err)
 		}
-		if err := utils.DisableService("containerd"); err != nil {
+		if err := svc.Disable(ContainerdService); err != nil {
 			su.logger.Warnf("Failed to disable containerd: %v", err)
 		}
 	}
@@ -59,6 +74,7 @@ func (su *UnInstaller) Execute(ctx context.Context) error {
 
 // IsCompleted checks if services have been stopped and disabled
 func (su *UnInstaller) IsCompleted(ctx context.Context) bool {
-	// Services are considered Executeed if they are not active
-	return !utils.IsServiceActive("containerd") && !utils.IsServiceActive("kubelet")
+	svc := su.platform.Service()
+	// Services are considered completed if they are not active
+	return !svc.IsActive(ContainerdService) && !svc.IsActive(KubeletService)
 }

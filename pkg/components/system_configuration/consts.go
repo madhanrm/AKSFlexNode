@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 package system_configuration
 
 const (

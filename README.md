@@ -3,19 +3,29 @@
 A Go service that extends Azure Kubernetes Service (AKS) to non-Azure VMs through Azure Arc integration, enabling hybrid and edge computing scenarios.
 
 **Status:** Work In Progress
-**Platform:** Ubuntu 24.04 LTS (tested)
-**Architecture:** x86_64 (amd64)
+**Platforms:** 
+- Ubuntu 24.04 LTS (production-ready)
+- Windows Server 2022 (experimental - in development)
+**Architecture:** x86_64 (amd64), ARM64 (Linux only)
 
 ## Overview
 
-AKS Flex Node transforms any Ubuntu VM into a fully managed AKS worker node by:
+AKS Flex Node transforms any VM into a fully managed AKS worker node by:
 
 - 🔗 **Azure Arc Registration** - Registers your VM with Azure Arc for cloud management
-- 📦 **Container Runtime Setup** - Installs and configures runc and containerd
+- 📦 **Container Runtime Setup** - Installs and configures containerd (runc on Linux, runhcs on Windows)
 - ☸️ **Kubernetes Integration** - Deploys kubelet, kubectl, and kubeadm components
 - 🌐 **Network Configuration** - Sets up Container Network Interface (CNI) for pod networking
-- 🚀 **Service Orchestration** - Configures and manages all required systemd services
+- 🚀 **Service Orchestration** - Configures and manages all required services (systemd on Linux, SCM on Windows)
 - ⚡ **Cluster Connection** - Securely joins your VM as a worker node to your existing AKS cluster
+
+### Supported Platforms
+
+| Platform | Status | Container Runtime | Service Manager |
+|----------|--------|-------------------|-----------------|
+| Ubuntu 24.04 LTS | ✅ Production | containerd + runc | systemd |
+| Ubuntu 22.04 LTS | ✅ Production | containerd + runc | systemd |
+| Windows Server 2022 | 🔄 In Development | containerd + runhcs | Windows SCM |
 
 ### Architecture
 
@@ -74,9 +84,8 @@ sequenceDiagram
 
 ### Prerequisites
 - **VM Requirements:**
-  - Ubuntu 24.04 LTS VM (non-Azure)
-  - Minimum 2GB RAM, 25GB free disk space
-  - Sudo access on the VM
+  - **Linux:** Ubuntu 22.04/24.04 LTS VM (non-Azure), minimum 2GB RAM, 25GB free disk space, sudo access
+  - **Windows:** Windows Server 2022 VM (non-Azure), minimum 4GB RAM, 50GB free disk space, Administrator access
 - **AKS Cluster Requirements:**
   - Azure RBAC enabled AKS cluster
   - Network connectivity from edge VM to cluster API server (port 443)
@@ -101,7 +110,11 @@ az aks create \
 
 group ID: ID of a group that will have access to the cluster. Later on you'll use "az login" to log into Azure. The account you use to log in needs to be a member of this group.
 
-### 1. Installation
+---
+
+## Linux Quick Start
+
+### 1. Installation (Linux)
 
 ```bash
 # Install az command line and run "az login"
@@ -115,7 +128,7 @@ curl -fsSL https://raw.githubusercontent.com/Azure/AKSFlexNode/main/scripts/inst
 aks-flex-node version
 ```
 
-### 2. Configure
+### 2. Configure (Linux)
 Create the configuration directory and file:
 
 ```bash
@@ -150,7 +163,6 @@ sudo tee /etc/aks-flex-node/config.json > /dev/null << 'EOF'
   }
 }
 EOF
-
 ```
 
 **Important:** Replace the placeholder values with your actual Azure resource information:
@@ -161,7 +173,7 @@ EOF
 - `your-cluster`: Your AKS cluster name
 
 
-### 3. Usage
+### 3. Usage (Linux)
 
 #### Available Commands
 
@@ -193,12 +205,126 @@ to view logs and see if anything goes wrong. If everything works fine, after a w
 - In the resource group you specified in the config file, you should see a new resource added by Azure Arc with type Microsoft.HybridCompute/machines
 - Running "kubectl get nodes" against your cluster should see the new node added and in "Ready" state
 
-#### Unbootstrap
+#### Unbootstrap (Linux)
 ```bash
 # Direct command execution
 aks-flex-node unbootstrap --config /etc/aks-flex-node/config.json
 cat /var/log/aks-flex-node/aks-flex-node.log
 ```
+
+---
+
+## Windows Quick Start (Experimental)
+
+> **Note:** Windows support is currently in development. The following instructions are for testing purposes.
+
+### 1. Installation (Windows)
+
+Open PowerShell as Administrator:
+
+```powershell
+# Install Azure CLI
+Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi
+Start-Process msiexec.exe -ArgumentList '/I AzureCLI.msi /quiet' -Wait
+Remove-Item .\AzureCLI.msi
+
+# Login to Azure
+az login
+
+# Install aks-flex-node
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Azure/AKSFlexNode/main/scripts/install.ps1" -OutFile install.ps1
+.\install.ps1
+
+# Verify installation
+aks-flex-node version
+```
+
+### 2. Configure (Windows)
+
+Create the configuration file:
+
+```powershell
+# Create configuration directory
+New-Item -ItemType Directory -Path "C:\ProgramData\aks-flex-node\config" -Force
+
+# Create configuration file
+@"
+{
+  "azure": {
+    "subscriptionId": "your-subscription-id",
+    "tenantId": "your-tenant-id",
+    "cloud": "AzurePublicCloud",
+    "arc": {
+      "machineName": "your-unique-node-name",
+      "tags": {
+        "environment": "edge",
+        "node-type": "worker"
+      },
+      "resourceGroup": "your-resource-group",
+      "location": "westus",
+      "autoRoleAssignment": true
+    },
+    "targetCluster": {
+      "resourceId": "/subscriptions/your-subscription-id/resourceGroups/your-rg/providers/Microsoft.ContainerService/managedClusters/your-cluster",
+      "location": "westus"
+    }
+  },
+  "kubernetes": {
+    "version": "your-kubernetes-version"
+  },
+  "agent": {
+    "logLevel": "info",
+    "logDir": "C:\\ProgramData\\aks-flex-node\\logs"
+  }
+}
+"@ | Out-File -FilePath "C:\ProgramData\aks-flex-node\config\config.json" -Encoding UTF8
+```
+
+**Important:** Replace the placeholder values with your actual Azure resource information (same as Linux).
+
+### 3. Usage (Windows)
+
+#### Available Commands
+
+| Command | Description | Usage |
+|---------|-------------|-------|
+| `agent` | Start agent daemon (bootstrap + monitoring) | `aks-flex-node agent --config C:\ProgramData\aks-flex-node\config\config.json` |
+| `unbootstrap` | Clean removal of all components | `aks-flex-node unbootstrap --config C:\ProgramData\aks-flex-node\config\config.json` |
+| `version` | Show version information | `aks-flex-node version` |
+
+#### Agent Command (Windows)
+```powershell
+# Option 1: Direct command execution (PowerShell as Administrator)
+aks-flex-node agent --config "C:\ProgramData\aks-flex-node\config\config.json"
+
+# Option 2: Using scheduled task (installed by install.ps1)
+Start-ScheduledTask -TaskName "AKS Flex Node Agent"
+
+# Check task status
+Get-ScheduledTask -TaskName "AKS Flex Node Agent" | Select-Object TaskName, State
+
+# View logs
+Get-Content "C:\ProgramData\aks-flex-node\logs\aks-flex-node.log" -Tail 50 -Wait
+```
+
+#### Unbootstrap (Windows)
+```powershell
+# Direct command execution (PowerShell as Administrator)
+aks-flex-node unbootstrap --config "C:\ProgramData\aks-flex-node\config\config.json"
+```
+
+### Windows-Specific Notes
+
+- **Container Runtime:** Windows uses containerd with runhcs (Windows container shim)
+- **CNI:** Calico for Windows with VXLAN overlay networking
+- **Services:** Managed via Windows Service Control Manager (SCM) and Scheduled Tasks
+- **Paths:**
+  - Binary: `C:\Program Files\aks-flex-node\aks-flex-node.exe`
+  - Config: `C:\ProgramData\aks-flex-node\config\config.json`
+  - Logs: `C:\ProgramData\aks-flex-node\logs\`
+  - Kubernetes: `C:\k\`, `C:\etc\kubernetes\`, `C:\var\lib\kubelet\`
+
+---
 
 ## Authentication Flow:
 
@@ -230,7 +356,7 @@ The service principal must have the same permissions listed in the Prerequisites
 
 ## Uninstallation
 
-### Complete Removal
+### Linux - Complete Removal
 ```bash
 # First run unbootstrap to cleanly disconnect from Arc and AKS cluster
 aks-flex-node unbootstrap --config /etc/aks-flex-node/config.json
@@ -245,10 +371,39 @@ The uninstall script will:
 - Clean up all directories and configuration files
 - Remove the binary and systemd service files
 
-### Force Uninstall (Non-interactive)
+### Linux - Force Uninstall (Non-interactive)
 ```bash
 # For automated environments where confirmation prompts should be skipped
 curl -fsSL https://raw.githubusercontent.com/Azure/AKSFlexNode/main/scripts/uninstall.sh | sudo bash -s -- --force
+```
+
+### Windows - Complete Removal
+```powershell
+# First run unbootstrap to cleanly disconnect from Arc and AKS cluster
+aks-flex-node unbootstrap --config "C:\ProgramData\aks-flex-node\config\config.json"
+
+# Then run automated uninstall to remove all components (PowerShell as Administrator)
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Azure/AKSFlexNode/main/scripts/uninstall.ps1" -OutFile uninstall.ps1
+.\uninstall.ps1
+```
+
+The Windows uninstall script will:
+- Stop scheduled tasks and Windows services (kubelet, containerd, Calico)
+- Remove firewall rules and HNS networks
+- Clean up Kubernetes directories (`C:\k`, `C:\etc\kubernetes`, etc.)
+- Remove the binary and configuration files
+- Optionally remove Azure Arc agent
+
+### Windows - Force Uninstall (Non-interactive)
+```powershell
+# For automated environments where confirmation prompts should be skipped
+.\uninstall.ps1 -Force
+
+# Keep Azure Arc agent installed
+.\uninstall.ps1 -Force -KeepArcAgent
+
+# Keep configuration files
+.\uninstall.ps1 -Force -KeepConfig
 ```
 
 **⚠️ Important Notes:**
@@ -273,8 +428,9 @@ For a complete list of build targets, run `make help`.
 
 ## System Requirements
 
-- **Operating System:** Ubuntu 22.04.5 LTS
-- **Architecture:** x86_64 (amd64)
+### Linux (Ubuntu)
+- **Operating System:** Ubuntu 22.04 LTS or 24.04 LTS
+- **Architecture:** x86_64 (amd64) or ARM64
 - **Memory:** Minimum 2GB RAM (4GB recommended)
 - **Storage:**
   - **Minimum:** 25GB free space
@@ -282,7 +438,18 @@ For a complete list of build targets, run `make help`.
   - **Production:** 50GB+ free space
 - **Network:** Internet connectivity to Azure endpoints
 - **Privileges:** Root/sudo access required
-- **Build Dependencies:** Go 1.24+ (if building from source)
+
+### Windows (Experimental)
+- **Operating System:** Windows Server 2022
+- **Architecture:** x86_64 (amd64)
+- **Memory:** Minimum 4GB RAM (8GB recommended)
+- **Storage:** Minimum 50GB free space
+- **Network:** Internet connectivity to Azure endpoints
+- **Privileges:** Administrator access required
+- **Note:** Windows support is currently in development. CNI, kubelet configuration, and Arc integration are not yet complete.
+
+### Build Dependencies
+- Go 1.24+ (if building from source)
 
 ### Storage Breakdown
 - **Base components:** ~3GB (Arc agent, runc, containerd, Kubernetes binaries, CNI plugins)
